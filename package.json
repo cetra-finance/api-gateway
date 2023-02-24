@@ -1,0 +1,28 @@
+{
+    "name": "cetra-api-gateway",
+    "version": "0.1.0",
+    "description": "⚙️ API gateway for cetra pools stats and other info.",
+    "main": "index.js",
+    "repository": "https://github.com/cetra-finance/api-gateway",
+    "author": "b3zrazli4n0 <b3zrazli4n0@gmail.com>",
+    "license": "MIT",
+    "private": false,
+    "scripts": {
+        "build": "yarn db:fmt && yarn db:gen && yarn tsc",
+        "db:gen": "yarn prisma generate",
+        "db:fmt": "yarn prisma format",
+        "run:dev": "vercel dev",
+        "fmt:fix": "yarn prettier --write .",
+        "fmt:check": "yarn prettier --check ."
+    },
+    "devDependencies": {
+        "@vercel/node": "^2.9.8",
+        "prettier": "^2.8.4",
+        "prisma": "^4.10.1",
+        "typescript": "^4.9.5"
+    },
+    "dependencies": {
+        "@prisma/client": "^4.10.1",
+        "decimal.js": "^10.4.3"
+    }
+}
