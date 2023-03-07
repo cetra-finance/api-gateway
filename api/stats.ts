@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { Pools, PrismaClient } from "@prisma/client";
+import { OptimismPool, PolygonPool, PrismaClient } from "@prisma/client";
 import Decimal from "decimal.js";
 
 const AVG_DAYS: number = 7;
@@ -8,11 +8,15 @@ const DAYS_IN_YEAR: number = 365;
 const USD_SCALE: number = 1e6;
 const SHARES_SCALE: number = 1e6;
 
+type AbstractPool = OptimismPool | PolygonPool;
+
+type Tables = "optimismPool" | "polygonPool";
+
 interface PoolsEntries {
-    firstEntry: Pools | null;
-    lastEntry: Pools | null;
-    weeklyEntry: Pools | null;
-    yesterdayEntry: Pools | null;
+    firstEntry: AbstractPool | null;
+    lastEntry: AbstractPool | null;
+    weeklyEntry: AbstractPool | null;
+    yesterdayEntry: AbstractPool | null;
 }
 
 interface PoolsStats {
@@ -26,6 +30,7 @@ interface PoolsStats {
 
 async function getPoolsEntries(
     dbClient: PrismaClient,
+    table: Tables,
     address: string
 ): Promise<PoolsEntries> {
     const nowDate = new Date();
@@ -39,7 +44,7 @@ async function getPoolsEntries(
     const yesterdayDateMin = new Date(nowDate);
     yesterdayDateMin.setUTCDate(yesterdayDateMin.getDate() - 1);
 
-    const firstEntry = await dbClient.pools.findFirst({
+    const firstEntry = await dbClient[table].findFirst({
         where: {
             address: {
                 equals: address,
@@ -49,7 +54,7 @@ async function getPoolsEntries(
             blockTime: "asc",
         },
     });
-    const lastEntry = await dbClient.pools.findFirst({
+    const lastEntry = await dbClient[table].findFirst({
         where: {
             address: {
                 equals: address,
@@ -59,7 +64,7 @@ async function getPoolsEntries(
             blockTime: "desc",
         },
     });
-    const weeklyEntry = await dbClient.pools.findFirst({
+    const weeklyEntry = await dbClient[table].findFirst({
         where: {
             address: {
                 equals: address,
@@ -70,7 +75,7 @@ async function getPoolsEntries(
             },
         },
     });
-    const yesterdayEntry = await dbClient.pools.findFirst({
+    const yesterdayEntry = await dbClient[table].findFirst({
         where: {
             address: {
                 equals: address,
@@ -90,7 +95,28 @@ async function getPoolsEntries(
     };
 }
 
-function calculateRatio(poolEntry: Pools | null): Decimal | null {
+async function getStats(
+    dbClient: PrismaClient,
+    table: Tables
+): Promise<PoolsStats[]> {
+    const addresses = (
+        await dbClient[table].findMany({
+            where: {},
+            distinct: ["address"],
+        })
+    ).map((pool) => pool.address);
+
+    let stats: PoolsStats[] = [];
+
+    for (const address of addresses) {
+        const poolsEntries = await getPoolsEntries(dbClient, table, address);
+        stats.push(getPoolsStats(address, poolsEntries));
+    }
+
+    return stats;
+}
+
+function calculateRatio(poolEntry: AbstractPool | null): Decimal | null {
     if (poolEntry === null) return null;
 
     const currentUsdBalance = new Decimal(poolEntry.currentUsdBalance).div(
@@ -176,22 +202,13 @@ function getPoolsStats(
 export default async (req: VercelRequest, resp: VercelResponse) => {
     try {
         const dbClient = new PrismaClient();
+        const polygonStats = await getStats(dbClient, "polygonPool");
+        const optimismStats = await getStats(dbClient, "optimismPool");
 
-        const addresses = (
-            await dbClient.pools.findMany({
-                where: {},
-                distinct: ["address"],
-            })
-        ).map((pool) => pool.address);
-
-        let stats: PoolsStats[] = [];
-
-        for (const address of addresses) {
-            const poolsEntries = await getPoolsEntries(dbClient, address);
-            stats.push(getPoolsStats(address, poolsEntries));
-        }
-
-        resp.status(200).json(stats);
+        resp.status(200).json({
+            polygon: polygonStats,
+            optimism: optimismStats,
+        });
     } catch (error: any) {
         resp.status(500).json({
             error: error.toString(),

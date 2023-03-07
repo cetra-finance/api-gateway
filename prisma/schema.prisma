@@ -8,7 +8,16 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model Pools {
+model PolygonPool {
+  id                Int      @id @default(autoincrement())
+  address           String   @db.VarChar(255)
+  block             Int
+  blockTime         DateTime @db.Timestamp()
+  totalShares       String   @db.VarChar(255)
+  currentUsdBalance String   @db.VarChar(255)
+}
+
+model OptimismPool {
   id                Int      @id @default(autoincrement())
   address           String   @db.VarChar(255)
   block             Int
