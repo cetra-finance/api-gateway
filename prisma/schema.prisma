@@ -25,3 +25,12 @@ model OptimismPool {
   totalShares       String   @db.VarChar(255)
   currentUsdBalance String   @db.VarChar(255)
 }
+
+model ArbitrumPool {
+  id                Int      @id @default(autoincrement())
+  address           String   @db.VarChar(255)
+  block             Int
+  blockTime         DateTime @db.Timestamp()
+  totalShares       String   @db.VarChar(255)
+  currentUsdBalance String   @db.VarChar(255)
+}

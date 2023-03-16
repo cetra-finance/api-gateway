@@ -1,5 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { OptimismPool, PolygonPool, PrismaClient } from "@prisma/client";
+import {
+    ArbitrumPool,
+    OptimismPool,
+    PolygonPool,
+    PrismaClient,
+} from "@prisma/client";
 import Decimal from "decimal.js";
 
 const AVG_DAYS: number = 7;
@@ -8,9 +13,9 @@ const DAYS_IN_YEAR: number = 365;
 const USD_SCALE: number = 1e6;
 const SHARES_SCALE: number = 1e6;
 
-type AbstractPool = OptimismPool | PolygonPool;
+type AbstractPool = OptimismPool | PolygonPool | ArbitrumPool;
 
-type Tables = "optimismPool" | "polygonPool";
+type Tables = "optimismPool" | "polygonPool" | "arbitrumPool";
 
 interface PoolsEntries {
     firstEntry: AbstractPool | null;
@@ -202,12 +207,17 @@ function getPoolsStats(
 export default async (req: VercelRequest, resp: VercelResponse) => {
     try {
         const dbClient = new PrismaClient();
-        const polygonStats = await getStats(dbClient, "polygonPool");
-        const optimismStats = await getStats(dbClient, "optimismPool");
+
+        const [polygonStats, optimismStats, arbitrumStats] = await Promise.all([
+            getStats(dbClient, "polygonPool"),
+            getStats(dbClient, "optimismPool"),
+            getStats(dbClient, "arbitrumPool"),
+        ]);
 
         resp.status(200).json({
             polygon: polygonStats,
             optimism: optimismStats,
+            arbitrum: arbitrumStats,
         });
     } catch (error: any) {
         resp.status(500).json({
